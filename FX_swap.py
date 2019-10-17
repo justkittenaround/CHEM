@@ -50,7 +50,7 @@ def swap_fx(smiles_data):
         for thing in swap_rxns:
             thingone = thing[0]
             thingtwo = thing[1]
-            tsv_writer.writerow([thingone, thingtwo])        
+            tsv_writer.writerow([thingone, thingtwo])
     return swap_rxns
 
 
