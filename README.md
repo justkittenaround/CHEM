@@ -1,2 +1,2 @@
 # CHEM
-Virtual High-throughput Screening Tools and Networks
+Virtual High-throughput Screening Tools and Models
