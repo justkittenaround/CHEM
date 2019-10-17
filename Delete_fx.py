@@ -28,7 +28,6 @@ def deletions(smiles_data):
                 matches = mol.GetSubstructMatches(Chem.MolFromSmarts(fx))
                 if len(matches) > 0:
                     dmol = AllChem.DeleteSubstructs(mol,functional_group)
-                    Chem.SanitizeMol(dmol)
                     smiles_bin.append(m)
                     deletions_bin.append(Chem.MolToSmiles(dmol))
             except:
