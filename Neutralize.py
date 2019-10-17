@@ -2,7 +2,7 @@ from RD_load import smiles_data_loader
 from rdkit import Chem
 from rdkit.Chem import AllChem
 import numpy as np
-
+import csv
 
 tsv_path = '/home/ras/Desktop/Rachel/CHEM/hiv1_protease.tsv'
 
@@ -51,12 +51,32 @@ def NeutraliseCharges(smiles, reactions=None):
     else:
         return (smiles, False)
 
-neutralized_bin = []
-smiles_bin = []
-for idx, smile in enumerate(smiles_data):
-    (molSmiles, neutralized) = NeutraliseCharges(smile)
-    if neutralized:
-        neutralized_bin.append(molSmiles)
-        smiles_bin.append(smile)
+def N_React(smiles_data):
+    neutralized_bin = []
+    smiles_bin = []
+    for idx, smile in enumerate(smiles_data):
+        (molSmiles, neutralized) = NeutraliseCharges(smile)
+        if neutralized:
+            neutralized_bin.append(molSmiles)
+            smiles_bin.append(smile)
+    neutralized_rxns = np.asarray(zip(smiles_bin, neutralized_bin))
+    with open('neutralized_reactions.tsv', 'wt') as out_file:
+        tsv_writer = csv.writer(out_file, delimiter='\t')
+        for thing in neutralized_rxns:
+            thingone = thing[0]
+            thingtwo = thing[1]
+            tsv_writer.writerow([thingone, thingtwo])
+    return neutralized_rxns
 
-neutralized_rxns = np.asarray(zip(smiles_bin, neutralized_bin))
+
+
+
+
+
+
+
+
+
+
+
+#
