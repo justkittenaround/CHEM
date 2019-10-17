@@ -1,3 +1,5 @@
+#code adapted from: https://www.rdkit.org/docs/Cookbook.html
+
 from RD_load import smiles_data_loader
 from rdkit import Chem
 from rdkit.Chem import AllChem
