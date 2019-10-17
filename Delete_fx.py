@@ -39,3 +39,6 @@ def deletions(smiles_data):
             thingtwo = thing[1]
             tsv_writer.writerow([thingone, thingtwo])
     return deletion_rxns
+
+
+#https://www.daylight.com/dayhtml_tutorials/languages/smarts/smarts_examples.html
