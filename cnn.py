@@ -1,130 +1,74 @@
-# !pip install -q tflearn
-# !pip install -q urllib3
-# !pip install autograd
-get_ipython().magic(u'matplotlib inline')
-import tflearn
-from tflearn.data_utils import to_categorical, pad_sequences
 import numpy as np
 import matplotlib.pyplot as plt
-import autograd.numpy as np
-import autograd.numpy.random as npr
-from autograd import grad
-from autograd.scipy.misc import logsumexp
-from autograd.misc.optimizers import adam
-import matplotlib.pyplot as plt
-from google.colab import drive
 import os
 import pandas as pd
 import csv
 
-#names:
-d = 'hiv1_protease'
-e = '652067'
-f = '1053197'
-#files
-a = 'hiv1_protease.tsv'
-b = '652067.tsv'
-c = '1053197.tsv'
 
-NUM_SAMPLES = 10000
-MAX_LEN = 256
-TEST = int((.2*NUM_SAMPLES))
-data_path = 'drive/My Drive/DeepChem/binding_datasets'
-dataset = c
+FILE_NAME = 'hiv1_protease.tsv'
+
+fn = FILE_NAME.split('.')
+
+NUM_EPOCHS = 100
+NUM_VAL = 0.25
+BATCH_SIZE = 8
+DROPOUT_RATE = 0.9
+LR = 0.002
+
+SAVE_NAME = fn[0] + '-e:'+ str(NUM_EPOCHS) + '-bs:' + str(BATCH_SIZE) + '-dropout'
 
 
-
-
-if dataset == a:
-  folder = d
-elif dataset == b:
-  folder = e
-else:
-  folder = f
-
-  def get_labels(dataset):
-    if dataset == a:
-      labels = np.asarray(pd.read_csv(dataset, delimiter='\t', header=(0), usecols=[3,4], encoding='utf-8'))
-    else:
-      labels = np.asarray(pd.read_csv(dataset, delimiter='\t', header=(0), usecols=[3,4], encoding='utf-8'))
+def get_labels(FILE_NAME):
+    labels = np.asarray(pd.read_csv(FILE_NAME, delimiter='\t', header=(0), usecols=[3,4], encoding='utf-8'))
     return labels
 
-def get_smiles():
-  if dataset == a:
-    smiles = np.genfromtxt(dataset, delimiter = '', skip_header=1, usecols=[1], dtype=str)
-  else:
-    smiles = np.asarray(pd.read_csv(dataset, delimiter='\t', header=(0), usecols=[1], encoding='utf-8'))
-  return smiles
+def get_smiles(FILE_NAME):
+    smiles = np.genfromtxt(FILE_NAME, delimiter = '', skip_header=1, usecols=[1], dtype=str)
+    smiles.astype(str)
+    return smiles
 
-
-smiles = get_smiles()
-if dataset != a:
-  smiles.astype(str)
-labels = get_labels(dataset)
-
-y0p = []
-y1 = []
-for i,n in enumerate(labels[:, 1]):
-  if n == 1:
-    y1.append(labels[i, 1])
-  else:
-    y0p.append(labels[i, 1])
-y0p = np.asarray(y0p)
-y1 = np.asarray(y1)
-
-
-non_num = len(y0p)
-bind_num = len(y1)
-if bind_num < NUM_SAMPLES:
-    seq_num = bind_num
-else:
-    seq_num = NUM_SAMPLES
-snum = np.random.choice(non_num, bind_num, replace=False)
-print(seq_num, non_num, bind_num)
-
-if dataset == a:
-  ident = np.eye(2)
-  y1 = ident[np.asarray(y1)]
-  y0ip = ident[np.asarray(y0p)]
-  y0 = y0ip[snum]
-else:
-  y0p = []
-  y1 = []
-  for i,z in enumerate(labels[:, 1]):
-    if z == 1:
-      y1.append(labels[i, 0])
-    else:
-      y0p.append(labels[i, 0])
-  y0p = np.asarray(y0p)
-  y1 = np.asarray(y1)
-  y0 = y0p[snum]
-
+def convert_smiles():
   smiles_bin = []
-for smile in smiles:
+  for smile in smiles:
     seq_bin = []
-    for bit in smile:
-        c = ord(bit)
-        n = c - 32
-        seq_bin.append(n)
-    if len(seq_bin) < MAX_LEN:
-        for i in range(MAX_LEN-len(seq_bin)):
-            seq_bin.append(0)
-        smiles_bin.append(seq_bin)
-    elif len(seq_bin) == MAX_LEN:
-        smiles_bin.append(seq_bin)
+    if len(smile) < MAX_LEN:
+      for bit in str(smile):
+        key = (ord(bit)-32)
+        seq_bin.append(key)
+      for i in range(MAX_LEN-len(seq_bin)):
+        seq_bin.append(0)
+      smiles_bin.append(seq_bin)
+    elif len(smile) == MAX_LEN:
+      for bit in str(smile):
+        key = (ord(bit)-32)
+        seq_bin.append(key)
+      smiles_bin.append(seq_bin)
+  return smiles_bin
 
-x0p = smiles_bin[:non_num]
-x1 = smiles_bin[non_num:]
-x0p = np.asarray(x0p)
-x1 = (np.asarray(x1))
-x0 = x0p[snum]
+def hot_smiles_img(NUM_SMILES, MAX_LEN, smiles_bin):
+    X = np.zeros([NUM_SMILES, MAX_LEN, MAX_LEN])
+    identity = np.eye(MAX_LEN)
+
+    for i in range(NUM_SMILES):
+        s = str(i)
+        x_smile = smiles_bin[i]
+        x_hot = identity[x_smile]
+        X[i, ...] = x_hot
+        if i == (NUM_SMILES+1):
+            break
+    return X
+
+labels = get_labels(FILE_NAME)
+smiles = get_smiles(FILE_NAME)
+MAX_LEN = max([len(x) for x in smiles])
+NUM_SMILES = len(smiles)
+smiles_bin = convert_smiles()
+labels = labels.astype(np.int32)
+ident = np.eye(2)
+Y = ident[labels[:,1]]
+X = hot_smiles_img(NUM_SMILES, MAX_LEN, smiles_bin)
 
 
-X = np.append(x0, x1, axis=0)
-Y = np.append(y0, y1, axis=0)
-if dataset != a:
-  Y = np.expand_dims(Y, axis=0).T
-X -= 95
 
 
 import tflearn
@@ -133,48 +77,69 @@ from tflearn.layers.core import input_data, dropout, fully_connected
 from tflearn.layers.conv import conv_2d, max_pool_2d
 from tflearn.layers.normalization import local_response_normalization
 from tflearn.layers.estimator import regression
+from autograd.misc.optimizers import adam
+from tflearn.data_utils import to_categorical, pad_sequences
+import autograd.numpy as np
+import autograd.numpy.random as npr
+from autograd import grad
+
+class DataAugmentation(object):
+
+    def __init__(self):
+        self.methods = []
+        self.args = []
+
+    def apply(self, batch):
+        for i, m in enumerate(self.methods):
+            if self.args[i]:
+                batch = m(batch, *self.args[i])
+            else:
+                batch = m(batch)
+        return batch
+
+class ImageAugmentation(DataAugmentation):
+
+    def __init__(self):
+        super(ImageAugmentation, self).__init__()
+
+    def add_random_flip_leftright(self):
+        self.methods.append(self._random_flip_leftright)
+        self.args.append(None)
+
+
+    def _random_flip_leftright(self, batch):
+
+        for i in range(len(batch)):
+
+                batch[i] = np.roll(batch[i],np.random.randint(max_length),axis=2)
+
+        return batch
+
+img_aug = tflearn.ImageAugmentation()
+img_aug.add_random_flip_leftright()
 
 tf.reset_default_graph()
-tbc=TensorBoardColab()
 
-p = 0.9
+X = [tf.convert_to_tensor(x) for x in X]
+Y = [tf.convert_to_tensor(y) for y in Y]
+X.shape, Y.shape
 
 
-import tensorflow as tf
-tf.reset_default_graph()
-
-if dataset == a:
-  network = input_data(shape=[None, MAX_LEN])
-  network = fully_connected(network, 100, activation='relu')
-  network = dropout(network, p)
-  network = fully_connected(network, 100, activation='relu')
-  network = dropout(network, p)
-  network = fully_connected(network, 100, activation='relu')
-  network = dropout(network, p)
-  network = fully_connected(network, 2, activation='softmax')
-  network = regression(network, optimizer='SGD', loss='categorical_crossentropy', learning_rate=0.001)
-else:
-  network = input_data(shape=[None, MAX_LEN])
-  network = fully_connected(network, 100, activation='relu')
-  network = dropout(network, p)
-  network = fully_connected(network, 100, activation='relu')
-  network = dropout(network, p)
-  network = fully_connected(network, 100, activation='relu')
-  network = dropout(network, p)
-  network = fully_connected(network, 1, activation='linear')
-  network = regression(network, optimizer='SGD', loss=tf.losses.mean_squared_error, learning_rate=0.001)
-
+network = input_data(shape=[None, MAX_LEN, MAX_LEN], data_augmentation=img_aug)
+network = fully_connected(network, 200 , activation='tanh')
+network = dropout(network, DROPOUT_RATE)
+network = fully_connected(network, 200, activation='tanh')
+network = dropout(network, DROPOUT_RATE)
+network = fully_connected(network, 200, activation='tanh')
+network = dropout(network, DROPOUT_RATE)
+network = fully_connected(network, 200, activation='tanh')
+network = dropout(network, DROPOUT_RATE)
+network = fully_connected(network, 2, activation='softmax')
+network = regression(network, optimizer='SGD', loss='categorical_crossentropy', learning_rate=LR)
 
 # Training
 model = tflearn.DNN(network, tensorboard_verbose=2, tensorboard_dir='./Graph')
-model.fit(X,Y, n_epoch=100, validation_set=0.1, snapshot_step=10, batch_size=120, show_metric=True, run_id=(folder+ '100e,.1V, 120BS'))
-
-
-
-
-
-
-
+model.fit(X,Y, n_epoch=NUM_EPOCHS, validation_set=NUM_VAL, snapshot_step=10, batch_size=BATCH_SIZE, show_metric=True, run_id=SAVE_NAME)
 
 
 
