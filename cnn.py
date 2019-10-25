@@ -69,8 +69,8 @@ MAX_LEN = max([len(x) for x in smiles])
 NUM_SMILES = len(smiles)
 smiles_bin = convert_smiles()
 Y = hot_labels(labels)
-X = hot_smiles_img(NUM_SMILES, MAX_LEN, smiles_bin)
-
+# X = hot_smiles_img(NUM_SMILES, MAX_LEN, smiles_bin)
+X = smiles_bin
 
 
 
@@ -109,7 +109,7 @@ img_aug.add_random_flip_leftright()
 
 tf.reset_default_graph()
 
-network = input_data(shape=[None, MAX_LEN, MAX_LEN], data_augmentation=img_aug)
+network = input_data(shape=[None, MAX_LEN], data_augmentation=img_aug)
 network = fully_connected(network, 200 , activation='tanh')
 network = dropout(network, DROPOUT_RATE)
 network = fully_connected(network, 200, activation='tanh')
