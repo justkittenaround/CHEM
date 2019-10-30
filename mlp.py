@@ -69,7 +69,6 @@ MAX_LEN = max([len(x) for x in smiles])
 NUM_SMILES = len(smiles)
 smiles_bin = convert_smiles()
 Y = hot_labels(labels)
-# X = hot_smiles_img(NUM_SMILES, MAX_LEN, smiles_bin)
 X = np.expand_dims(np.asarray(smiles_bin), axis=2)
 
 

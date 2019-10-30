@@ -46,13 +46,14 @@ def convert_smiles():
   return smiles_bin
 
 def hot_smiles_img(NUM_SMILES, MAX_LEN, smiles_bin):
-    X = np.zeros([NUM_SMILES, MAX_LEN, MAX_LEN])
+    X = np.zeros([NUM_SMILES, np.max(np.asarray(smiles_bin)), MAX_LEN])
     identity = np.eye(MAX_LEN)
     for i in range(NUM_SMILES):
         s = str(i)
         x_smile = smiles_bin[i]
         x_hot = identity[x_smile]
-        X[i, ...] = x_hot
+        x = x_hot[:85, :]
+        X[i, ...] = x
         if i == (NUM_SMILES+1):
             break
     return X
@@ -69,16 +70,22 @@ MAX_LEN = max([len(x) for x in smiles])
 NUM_SMILES = len(smiles)
 smiles_bin = convert_smiles()
 Y = hot_labels(labels)
-# X = hot_smiles_img(NUM_SMILES, MAX_LEN, smiles_bin)
-X = np.expand_dims(np.asarray(smiles_bin), axis=2)
+X = np.expand_dims(hot_smiles_img(NUM_SMILES, MAX_LEN, smiles_bin), axis=3)
 
 
 
 import tflearn
 import tensorflow as tf
 from tflearn.layers.core import input_data, dropout, fully_connected
+from tflearn.layers.conv import conv_2d, max_pool_2d
+from tflearn.layers.normalization import local_response_normalization
 from tflearn.layers.estimator import regression
+from autograd.misc.optimizers import adam
 from tflearn.data_utils import to_categorical, pad_sequences
+import autograd.numpy as np
+import autograd.numpy.random as npr
+from autograd import grad
+
 
 
 class DataAugmentation(object):
@@ -109,17 +116,20 @@ img_aug.add_random_flip_leftright()
 
 tf.reset_default_graph()
 
-network = input_data(shape=[None, MAX_LEN, 1], data_augmentation=img_aug)
-network = fully_connected(network, 200 , activation='tanh')
-network = dropout(network, DROPOUT_RATE)
-network = fully_connected(network, 200, activation='tanh')
-network = dropout(network, DROPOUT_RATE)
-network = fully_connected(network, 200, activation='tanh')
-network = dropout(network, DROPOUT_RATE)
-network = fully_connected(network, 200, activation='tanh')
-network = dropout(network, DROPOUT_RATE)
+# Building convolutional network
+network = input_data(shape=[None, 85, MAX_LEN, 1], name='input')
+network = conv_2d(network, 32, 3, activation='relu', regularizer="L2")
+network = max_pool_2d(network, 2)
+network = local_response_normalization(network)
+network = conv_2d(network, 64, 3, activation='relu', regularizer="L2")
+network = max_pool_2d(network, 2)
+network = local_response_normalization(network)
+network = fully_connected(network, 128, activation='tanh')
+network = dropout(network, 0.8)
+network = fully_connected(network, 256, activation='tanh')
+network = dropout(network, 0.8)
 network = fully_connected(network, 2, activation='softmax')
-network = regression(network, optimizer='adam', loss='categorical_crossentropy', learning_rate=LR)
+network = regression(network, optimizer='adam', learning_rate=0.01,loss='categorical_crossentropy', name='target')
 
 # Training
 model = tflearn.DNN(network, tensorboard_verbose=2, tensorboard_dir='./Graph')
