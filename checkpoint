@@ -1,0 +1,2 @@
+model_checkpoint_path: "/tf/CHEM/hiv1_protease-e:100-bs:8-dropout.tflearn"
+all_model_checkpoint_paths: "/tf/CHEM/hiv1_protease-e:100-bs:8-dropout.tflearn"

@@ -7,6 +7,13 @@ import torch.optim as optim
 import torchvision
 from torchvision import datasets, models, transforms
 from torchvision import transforms, utils
+import torch
+import torchvision
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
+from torch.utils.data import TensorDataset
+from torch.utils.data import DataLoader
 import numpy as np
 import matplotlib.pyplot as plt
 import time
@@ -23,7 +30,7 @@ from PIL import Image
 
 print("PyTorch Version: ",torch.__version__)
 print("Torchvision Version: ",torchvision.__version__)
-vis = visdom.Visdom()
+# vis = visdom.Visdom()
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class DataParallelModel(nn.Module):
@@ -43,7 +50,7 @@ class DataParallelModel(nn.Module):
 data_dir = 'data'
 
 PATH = 'results'
-
+FILE_NAME = 'hiv1_protease.tsv'
 RESULTS = 'results/graphs'
 
 NUM_CLASSES = 2
@@ -136,21 +143,21 @@ def train_model(model, dataloaders, criterion, optimizer, NUM_EPOCHS=NUM_EPOCHS,
 
 ##SET MODEL PARAMETERS WITH GRAD################################################
 
-data_transforms = {
-    'train': transforms.Compose([
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-    ]),
-    'val': transforms.Compose([
-        transforms.ToTensor(),
-    ]),
-}
+# data_transforms = {
+#     'train': transforms.Compose([
+#         transforms.RandomHorizontalFlip(),
+#         transforms.ToTensor(),
+#     ]),
+#     'val': transforms.Compose([
+#         transforms.ToTensor(),
+#     ]),
+# }
+#
+# print("Initializing Datasets and Dataloaders...")
+# image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), data_transforms[x]) for x in ['train', 'val']}
+# dataloaders_dict = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=BATCH_SIZE, shuffle=True, num_workers=4) for x in ['train', 'val']}
 
-print("Initializing Datasets and Dataloaders...")
-image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), data_transforms[x]) for x in ['train', 'val']}
-dataloaders_dict = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=BATCH_SIZE, shuffle=True, num_workers=4) for x in ['train', 'val']}
-
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 #load_model#############################################################
 class ConvNet(nn.Module):
@@ -175,8 +182,8 @@ class ConvNet(nn.Module):
         return out
 
 def initialize_model(MODEL_NAME, NUM_CLASSES, use_pretrained=PRETRAIN):
-    model_ft = None
-    INPUT_SIZE = 0
+    # model_ft = None
+    # INPUT_SIZE = 0
     if MODEL_NAME == "resnet":
         model_ft = models.resnet18(pretrained=use_pretrained)
         num_ftrs = model_ft.fc.in_features
@@ -184,8 +191,8 @@ def initialize_model(MODEL_NAME, NUM_CLASSES, use_pretrained=PRETRAIN):
         INPUT_SIZE = 541
     elif MODEL_NAME == "CNN":
         model_ft = ConvNet(NUM_CLASSES)
-    return model_ft, INPUT_SIZE
-ft_model, INPUT_SIZE = initialize_model(MODEL_NAME, NUM_CLASSES, use_pretrained=PRETRAIN)
+    return model_ft
+ft_model= initialize_model(MODEL_NAME, NUM_CLASSES, use_pretrained=PRETRAIN)
 
 if torch.cuda.device_count() > 1:
               print("Let's use", torch.cuda.device_count(), "GPUs!")
