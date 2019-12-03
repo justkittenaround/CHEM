@@ -12,13 +12,15 @@ import torch
 import numpy as np
 from PIL import Image
 
-LOAD_PATH = 'results/CNNtorch-100e-16bs-cnn.pt'
+LOAD_PATH = 'results/CNN-torch-100e-32bs-95.pt'
 OG_DATA_PATH = 'data/test/neut/og'
 N_DATA_PATH = 'data/test/neut/n'
 SAVE_NAME = 'data/test/results'
+FILE_NAME = 'neutralized_reactions.tsv'
 
-INPUT_SIZE = 541
-ft_size = ((round(INPUT_SIZE/4)) +1) * ((round(INPUT_SIZE/4)) +1) * 32
+INPUT_SIZE_R = 541
+INPUT_SIZE_C = 86
+ft_size = ((round(INPUT_SIZE_R/4)) +1) * ((round(INPUT_SIZE_C/4)) +1) * 32
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -57,21 +59,61 @@ class ConvNet(nn.Module):
         out = self.fc(out)
         return out
 
-
 model = torch.load(LOAD_PATH)
 model.eval()
+
 if torch.cuda.device_count() > 0:
     if torch.cuda.device_count() > 1:
                   print("Let's use", torch.cuda.device_count(), "GPUs!")
                   model = nn.DataParallel(model)
     model= model.to(device)
 
+#DATA###########################################################################
+
+def get_labels(FILE_NAME):
+    labels = np.asarray(pd.read_csv(FILE_NAME, delimiter='\t', header=(0), usecols=[4], encoding='utf-8')).astype('float64')
+    return labels
+
+def get_smiles(FILE_NAME):
+    smiles = np.genfromtxt(FILE_NAME, delimiter = '', skip_header=1, usecols=[1], dtype=str).astype(str)
+    smiles.astype(str)
+    return smiles
+
+def convert_smiles():
+  smiles_bin = []
+  for smile in smiles:
+    seq_bin = []
+    if len(smile) < MAX_LEN:
+      for bit in str(smile):
+        key = (ord(bit)-32)
+        seq_bin.append(key)
+      for i in range(MAX_LEN-len(seq_bin)):
+        seq_bin.append(0)
+      smiles_bin.append(seq_bin)
+    elif len(smile) == MAX_LEN:
+      for bit in str(smile):
+        key = (ord(bit)-32)
+        seq_bin.append(key)
+      smiles_bin.append(seq_bin)
+  return smiles_bin
+
+def hot_smiles_img(MAX_LEN, smiles_bin):
+    print('Loading Data...')
+    X = np.zeros((smiles.shape[0], MAX_LEN, 86))
+    identity = np.eye(MAX_LEN, 86)
+    for i in range(smiles.shape[0]):
+        s = str(i)
+        x_smile = smiles_bin[i]
+        x = identity[x_smile]
+        X[i, ...] = x
+        if i == (smiles.shape[0]+1):
+            break
+    return X
 
 
-data_transforms = transforms.Compose([
-        transforms.ToTensor(),
-    ])
 
+
+#RUN AND SAVE###################################################################
 for DATA_PATH in [OG_DATA_PATH, N_DATA_PATH]:
     X = []
     for im in os.listdir(DATA_PATH):
