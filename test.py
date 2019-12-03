@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torchvision
+from torch.utils.data import TensorDataset, DataLoader
 from torchvision import datasets, models, transforms
 import torch.nn.functional as f
 import os
@@ -16,7 +17,9 @@ import pandas as pd
 LOAD_PATH = 'results/CNN-torch-100e-32bs-95.pt'
 SAVE_NAME = 'data/test/results'
 FILE_NAME = 'neutralized_reactions.tsv'
+LABEL_NAME = 'hiv1_protease.tsv'
 
+BATCH_SIZE = 16
 INPUT_SIZE_R = 541
 INPUT_SIZE_C = 86
 ft_size = ((round(INPUT_SIZE_R/4)) +1) * ((round(INPUT_SIZE_C/4)) +1) * 32
@@ -59,100 +62,81 @@ class ConvNet(nn.Module):
         return out
 
 model = torch.load(LOAD_PATH)
+# model.load_state_dict(torch.load(LOAD_PATH))
 model.eval()
 
 if torch.cuda.device_count() > 0:
-    # if torch.cuda.device_count() > 1:
-    #               print("Let's use", torch.cuda.device_count(), "GPUs!")
-    #               model = nn.DataParallel(model)
+    if torch.cuda.device_count() > 1:
+                  print("Let's use", torch.cuda.device_count(), "GPUs!")
+                  model = nn.DataParallel(model)
     model = model.to(device)
 
 #DATA###########################################################################
 
-gps = np.genfromtxt(FILE_NAME, delimiter = '', skip_header=1, usecols=[0], dtype=str).astype(str)
+gps = np.genfromtxt(FILE_NAME, delimiter = '', skip_header=1, usecols=[0], dtype=str).astype(int)
 og_smiles = np.genfromtxt(FILE_NAME, delimiter = '', skip_header=1, usecols=[1], dtype=str).astype(str)
 neut_smiles = np.asarray(pd.read_csv(FILE_NAME, delimiter='\t', header=(0), usecols=[2], encoding='utf-8')).astype('str')
 
+def convert_smiles(smiles, max_len):
+    smiles_bin = []
+    for smile in smiles:
+        seq_bin = []
+        if len(smile) < max_len:
+            for bit in str(smile):
+                key = (ord(bit)-32)
+                seq_bin.append(key)
+            for i in range(max_len-len(seq_bin)):
+                seq_bin.append(0)
+            smiles_bin.append(seq_bin)
+        elif len(smile) == max_len:
+            for bit in str(smile):
+                key = (ord(bit)-32)
+                seq_bin.append(key)
+            smiles_bin.append(seq_bin)
+    return smiles_bin
 
-def convert_smiles():
-  smiles_bin = []
-  for smile in smiles:
-    seq_bin = []
-    if len(smile) < MAX_LEN:
-      for bit in str(smile):
-        key = (ord(bit)-32)
-        seq_bin.append(key)
-      for i in range(MAX_LEN-len(seq_bin)):
-        seq_bin.append(0)
-      smiles_bin.append(seq_bin)
-    elif len(smile) == MAX_LEN:
-      for bit in str(smile):
-        key = (ord(bit)-32)
-        seq_bin.append(key)
-      smiles_bin.append(seq_bin)
-  return smiles_bin
-
-def hot_smiles_img(MAX_LEN, smiles_bin):
+def hot_smiles_img(max_len, smiles_bin):
     print('Loading Data...')
-    X = np.zeros((smiles.shape[0], MAX_LEN, 86))
-    identity = np.eye(MAX_LEN, 86)
-    for i in range(smiles.shape[0]):
+    X = np.zeros((gps.shape[0], max_len, 86))
+    identity = np.eye(max_len, 86)
+    for i in range(gps.shape[0]):
         s = str(i)
         x_smile = smiles_bin[i]
         x = identity[x_smile]
         X[i, ...] = x
-        if i == (smiles.shape[0]+1):
+        if i == (gps.shape[0]+1):
             break
     return X
 
-labels = get_labels(FILE_NAME)[:,0]
-smiles = get_smiles(FILE_NAME)
-MAX_LEN = max([len(x) for x in smiles])
-NUM_SMILES = len(smiles)
-num_0 = np.argmax(labels)
-num_1 = NUM_SMILES - num_0
-select = np.random.choice(num_0, int(num_1), replace=False)
-Y0 = labels[select, ...]
-Y1 = labels[num_0:, ...]
-Y = torch.as_tensor(np.append(Y0, Y1))
-smiles0 = smiles[select, ...]
-smiles1 = smiles[num_0:, ...]
-smiles = np.append(smiles0, smiles1)
-smiles_bin = np.asarray(convert_smiles())
-X = hot_smiles_img(MAX_LEN, smiles_bin)
-X = torch.as_tensor(X).unsqueeze(1)
-val_num = int(X.shape[0]*.20)
-val_idx = np.random.choice(smiles.shape[0], val_num, replace=False)
-X_val = X[val_idx, ...]
-X_train = X[[i for i in range(smiles.shape[0]) if i not in val_idx], ...]
-Y_val = Y[val_idx, ...]
-Y_train = Y[[i for i in range(smiles.shape[0]) if i not in val_idx], ...]
+og_max_len = max([len(x) for x in og_smiles])
+n_max_len = max([len(x) for x in neut_smiles])
+max_len = max(og_max_len, n_max_len)
 
-train_ds = TensorDataset(X_train, Y_train)
-train_dl = DataLoader(train_ds, batch_size=BATCH_SIZE, num_workers=4)
-val_ds = TensorDataset(X_val, Y_val)
-val_dl = DataLoader(val_ds, batch_size=BATCH_SIZE, num_workers=4)
-dataloaders = {'train': train_dl, 'val': val_dl}
+labels = np.asarray(pd.read_csv(LABEL_NAME, delimiter='\t', header=(0), usecols=[4], encoding='utf-8')).astype('float64')[:,0]
+labels = labels[gps, ...]
 
+og_smiles_bin = np.asarray(convert_smiles(og_smiles, max_len))
+n_smiles_bin = np.asarray(convert_smiles(neut_smiles, max_len))
 
+og_X = hot_smiles_img(max_len, og_smiles_bin)
+n_X = hot_smiles_img(max_len, n_smiles_bin)
+og_X = torch.as_tensor(og_X).unsqueeze(1)
+n_X = torch.as_tensor(n_X).unsqueeze(1)
+
+data = {'og':[og_X], 'neut':[n_X]}
 
 
 #RUN AND SAVE###################################################################
-for DATA_PATH in [OG_DATA_PATH, N_DATA_PATH]:
-    X = []
-    for im in os.listdir(DATA_PATH):
-        img_obj = Image.open(DATA_PATH + '/' + im)
-        X.append(img_obj)
+for phase in ['og', 'neut']:
     ins_OG = []
     preds_OG = []
     ins_N = []
     preds_N = []
-    D = [data_transforms(x) for x in X]
-    for d in D:
-        input = d.unsqueeze(0).cuda()
-        predictions = f.softmax(model(input)).detach().cpu().numpy()
+    for dataset in data[phase]:
+        batch = dataset[np.random.randint(0, dataset.shape[0], BATCH_SIZE)].to(device)
+        predictions = f.softmax(model(batch)).detach().cpu().numpy()
         predictions = np.squeeze(predictions)
-        if DATA_PATH == OG_DATA_PATH:
+        if phase == 'og':
             ins_OG.append(input)
             preds_OG.append(predictions)
         else:

@@ -21,19 +21,19 @@ print("PyTorch Version: ",torch.__version__)
 print("Torchvision Version: ",torchvision.__version__)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-class DataParallelModel(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.block1 = nn.Linear(10, 20)
-        # wrap block2 in DataParallel
-        self.block2 = nn.Linear(20, 20)
-        self.block2 = nn.DataParallel(self.block2)
-        self.block3 = nn.Linear(20, 20)
-    def forward(self, x):
-        x = self.block1(x)
-        x = self.block2(x)
-        x = self.block3(x)
-        return x
+# class DataParallelModel(nn.Module):
+#     def __init__(self):
+#         super().__init__()
+#         self.block1 = nn.Linear(10, 20)
+#         # wrap block2 in DataParallel
+#         self.block2 = nn.Linear(20, 20)
+#         self.block2 = nn.DataParallel(self.block2)
+#         self.block3 = nn.Linear(20, 20)
+#     def forward(self, x):
+#         x = self.block1(x)
+#         x = self.block2(x)
+#         x = self.block3(x)
+#         return x
 
 vis = visdom.Visdom()
 
@@ -49,7 +49,7 @@ MODEL_NAME = 'CNN'
 
 NUM_CLASSES = 2
 
-BATCH_SIZE = 32
+BATCH_SIZE = 20
 
 NUM_EPOCHS = 150
 
@@ -107,9 +107,9 @@ def train_model(model, DATA, criterion, optimizer, NUM_EPOCHS):
 
             if phase == 'train':
                 train_acc.append(epoch_acc.cpu().numpy())
-                vis.line(train_acc, win='train_acc', opts=dict(title= MODEL_NAME + '-train_acc'))
+                # vis.line(train_acc, win='train_acc', opts=dict(title= MODEL_NAME + '-train_acc'))
                 train_loss.append(epoch_loss)
-                vis.line(train_loss, win='train_loss', opts=dict(title= MODEL_NAME + '-train_loss'))
+                # vis.line(train_loss, win='train_loss', opts=dict(title= MODEL_NAME + '-train_loss'))
 
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(phase, epoch_loss, epoch_acc))
 
@@ -118,9 +118,9 @@ def train_model(model, DATA, criterion, optimizer, NUM_EPOCHS):
                 best_model_wts = copy.deepcopy(model.state_dict())
             if phase == 'val':
                 val_acc_history.append(epoch_acc.cpu().numpy())
-                vis.line(val_acc_history, win='val_acc', opts=dict(title= MODEL_NAME + '-val_acc'))
+                # vis.line(val_acc_history, win='val_acc', opts=dict(title= MODEL_NAME + '-val_acc'))
                 val_loss.append(epoch_loss)
-                vis.line(val_loss, win='val_loss', opts=dict(title= MODEL_NAME + '-val_loss'))
+                # vis.line(val_loss, win='val_loss', opts=dict(title= MODEL_NAME + '-val_loss'))
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
@@ -162,9 +162,9 @@ else:
     model = ConvNet(NUM_CLASSES, BATCH_SIZE)
 model.double()
 
-if torch.cuda.device_count() > 1:
-    print("Let's use", torch.cuda.device_count(), "GPUs!")
-    model = nn.DataParallel(model)
+# if torch.cuda.device_count() > 1:
+#     print("Let's use", torch.cuda.device_count(), "GPUs!")
+#     model = nn.DataParallel(model)
 
 model = model.to(device)
 
@@ -239,7 +239,7 @@ Y_train = Y[[i for i in range(smiles.shape[0]) if i not in val_idx], ...]
 train_ds = TensorDataset(X_train, Y_train)
 train_dl = DataLoader(train_ds, batch_size=BATCH_SIZE, num_workers=4)
 val_ds = TensorDataset(X_val, Y_val)
-val_dl = DataLoader(val_ds, batch_size=BATCH_SIZE, num_workers=4)
+val_dl = DataLoader(val_ds, batch_size=BATCH_SIZE*2, num_workers=4)
 dataloaders = {'train': train_dl, 'val': val_dl}
 
 
