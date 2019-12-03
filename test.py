@@ -11,10 +11,9 @@ import os
 import torch
 import numpy as np
 from PIL import Image
+import pandas as pd
 
 LOAD_PATH = 'results/CNN-torch-100e-32bs-95.pt'
-OG_DATA_PATH = 'data/test/neut/og'
-N_DATA_PATH = 'data/test/neut/n'
 SAVE_NAME = 'data/test/results'
 FILE_NAME = 'neutralized_reactions.tsv'
 
@@ -63,21 +62,17 @@ model = torch.load(LOAD_PATH)
 model.eval()
 
 if torch.cuda.device_count() > 0:
-    if torch.cuda.device_count() > 1:
-                  print("Let's use", torch.cuda.device_count(), "GPUs!")
-                  model = nn.DataParallel(model)
-    model= model.to(device)
+    # if torch.cuda.device_count() > 1:
+    #               print("Let's use", torch.cuda.device_count(), "GPUs!")
+    #               model = nn.DataParallel(model)
+    model = model.to(device)
 
 #DATA###########################################################################
 
-def get_labels(FILE_NAME):
-    labels = np.asarray(pd.read_csv(FILE_NAME, delimiter='\t', header=(0), usecols=[4], encoding='utf-8')).astype('float64')
-    return labels
+gps = np.genfromtxt(FILE_NAME, delimiter = '', skip_header=1, usecols=[0], dtype=str).astype(str)
+og_smiles = np.genfromtxt(FILE_NAME, delimiter = '', skip_header=1, usecols=[1], dtype=str).astype(str)
+neut_smiles = np.asarray(pd.read_csv(FILE_NAME, delimiter='\t', header=(0), usecols=[2], encoding='utf-8')).astype('str')
 
-def get_smiles(FILE_NAME):
-    smiles = np.genfromtxt(FILE_NAME, delimiter = '', skip_header=1, usecols=[1], dtype=str).astype(str)
-    smiles.astype(str)
-    return smiles
 
 def convert_smiles():
   smiles_bin = []
@@ -109,6 +104,35 @@ def hot_smiles_img(MAX_LEN, smiles_bin):
         if i == (smiles.shape[0]+1):
             break
     return X
+
+labels = get_labels(FILE_NAME)[:,0]
+smiles = get_smiles(FILE_NAME)
+MAX_LEN = max([len(x) for x in smiles])
+NUM_SMILES = len(smiles)
+num_0 = np.argmax(labels)
+num_1 = NUM_SMILES - num_0
+select = np.random.choice(num_0, int(num_1), replace=False)
+Y0 = labels[select, ...]
+Y1 = labels[num_0:, ...]
+Y = torch.as_tensor(np.append(Y0, Y1))
+smiles0 = smiles[select, ...]
+smiles1 = smiles[num_0:, ...]
+smiles = np.append(smiles0, smiles1)
+smiles_bin = np.asarray(convert_smiles())
+X = hot_smiles_img(MAX_LEN, smiles_bin)
+X = torch.as_tensor(X).unsqueeze(1)
+val_num = int(X.shape[0]*.20)
+val_idx = np.random.choice(smiles.shape[0], val_num, replace=False)
+X_val = X[val_idx, ...]
+X_train = X[[i for i in range(smiles.shape[0]) if i not in val_idx], ...]
+Y_val = Y[val_idx, ...]
+Y_train = Y[[i for i in range(smiles.shape[0]) if i not in val_idx], ...]
+
+train_ds = TensorDataset(X_train, Y_train)
+train_dl = DataLoader(train_ds, batch_size=BATCH_SIZE, num_workers=4)
+val_ds = TensorDataset(X_val, Y_val)
+val_dl = DataLoader(val_ds, batch_size=BATCH_SIZE, num_workers=4)
+dataloaders = {'train': train_dl, 'val': val_dl}
 
 
 
