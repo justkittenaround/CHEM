@@ -4,7 +4,7 @@ from rdkit.Chem import AllChem
 import numpy as np
 import csv
 
-tsv_path = '/home/ras/Desktop/Rachel/CHEM/hiv1_protease.tsv'
+tsv_path = 'hiv1_protease.tsv'
 smiles_data = smiles_data_loader(tsv_path)
 
 
@@ -19,26 +19,38 @@ def deletions(smiles_data):
     groups = _groups
     deletions_bin = []
     smiles_bin = []
-    for m in smiles_data:
+    gps_bin = []
+    for idx, m in enumerate(smiles_data):
         mol = Chem.MolFromSmiles(m)
+        pregps = []
+        pres = []
+        predels = []
         for fx in fx_groups:
             try:
                 matches = mol.GetSubstructMatches(Chem.MolFromSmarts(fx))
                 if len(matches) > 0:
                     dmol = AllChem.DeleteSubstructs(mol,Chem.MolFromSmarts(fx))
                     Chem.SanitizeMol(dmol)
-                    smiles_bin.append(m)
-                    deletions_bin.append(Chem.MolToSmiles(dmol))
+                    pres.append(m)
+                    pregps.append(idx)
+                    predels.append(Chem.MolToSmiles(dmol))
             except:
                 pass
-    deletion_rxns = np.asarray(zip(smiles_bin, deletions_bin))
+        if len(predels) > 0:
+            num = int(np.random.randint(0, len(predels), 1))
+            deletions_bin.append(predels[num])
+            smiles_bin.append(pres[num])
+            gps_bin.append(pregps[num])
+    deletion_rxns = np.asarray(zip(gps_bin, smiles_bin, deletions_bin))
     with open('deletion_reactions.tsv', 'wt') as out_file:
         tsv_writer = csv.writer(out_file, delimiter='\t')
         for thing in deletion_rxns:
-            thingone = thing[0]
-            thingtwo = thing[1]
-            tsv_writer.writerow([thingone, thingtwo])
+            thingzero = thing[0]
+            thingone = thing[1]
+            thingtwo = thing[2]
+            tsv_writer.writerow([thingzero, thingone, thingtwo])
     return deletion_rxns
 
-
+fx_groups = _initialize_groups()
+d = deletions(smiles_data)
 #https://www.daylight.com/dayhtml_tutorials/languages/smarts/smarts_examples.html

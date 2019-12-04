@@ -4,7 +4,7 @@ from rdkit.Chem import AllChem
 import numpy as np
 import csv
 
-tsv_path = '/home/ras/Desktop/Rachel/CHEM/hiv1_protease.tsv'
+tsv_path = 'hiv1_protease.tsv'
 smiles_data = smiles_data_loader(tsv_path)
 
 
@@ -20,7 +20,8 @@ def swap_fx(smiles_data):
     groups = _groups
     swapped_bin = []
     smiles_bin = []
-    for m in smiles_data:
+    gps_bin = []
+    for idx, m in enumerate(smiles_data):
         mol = Chem.MolFromSmiles(m)
         fx_bin = []
         for fx in groups:
@@ -35,6 +36,7 @@ def swap_fx(smiles_data):
             smol = AllChem.ReplaceSubstructs(mol, fx_choice[0], fx_choice[1])
             swapped_bin.append(Chem.MolToSmiles(smol[0]))
             smiles_bin.append(m)
+            gps_bin.append(idx)
             print('swapped')
         elif len(fx_bin) == 1:
             fx_poss = groups[groups != Chem.MolToSmiles(fx_bin[0])]
@@ -43,18 +45,21 @@ def swap_fx(smiles_data):
             smol = AllChem.ReplaceSubstructs(mol,fx_bin[0], swap_choice)
             swapped_bin.append(Chem.MolToSmiles(smol[0]))
             smiles_bin.append(m)
+            gps_bin.append(idx)
             print('swapped')
-    swap_rxns = np.asarray(zip(smiles_bin, swapped_bin))
+    swap_rxns = np.asarray(zip(gps_bin, smiles_bin, swapped_bin))
+
     with open('swap-fx_reactions.tsv', 'wt') as out_file:
         tsv_writer = csv.writer(out_file, delimiter='\t')
         for thing in swap_rxns:
-            thingone = thing[0]
-            thingtwo = thing[1]
-            tsv_writer.writerow([thingone, thingtwo])
+            thingzero = thing[0]
+            thingone = thing[1]
+            thingtwo = thing[2]
+            tsv_writer.writerow([thingzero, thingone, thingtwo])
     return swap_rxns
 
 
-
+swap = swap_fx(smiles_data)
 
 
 ###

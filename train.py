@@ -49,7 +49,7 @@ MODEL_NAME = 'CNN'
 
 NUM_CLASSES = 2
 
-BATCH_SIZE = 20
+BATCH_SIZE = 32
 
 NUM_EPOCHS = 150
 
@@ -107,9 +107,9 @@ def train_model(model, DATA, criterion, optimizer, NUM_EPOCHS):
 
             if phase == 'train':
                 train_acc.append(epoch_acc.cpu().numpy())
-                # vis.line(train_acc, win='train_acc', opts=dict(title= MODEL_NAME + '-train_acc'))
+                vis.line(train_acc, win='train_acc', opts=dict(title= MODEL_NAME + '-train_acc'))
                 train_loss.append(epoch_loss)
-                # vis.line(train_loss, win='train_loss', opts=dict(title= MODEL_NAME + '-train_loss'))
+                vis.line(train_loss, win='train_loss', opts=dict(title= MODEL_NAME + '-train_loss'))
 
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(phase, epoch_loss, epoch_acc))
 
@@ -118,9 +118,9 @@ def train_model(model, DATA, criterion, optimizer, NUM_EPOCHS):
                 best_model_wts = copy.deepcopy(model.state_dict())
             if phase == 'val':
                 val_acc_history.append(epoch_acc.cpu().numpy())
-                # vis.line(val_acc_history, win='val_acc', opts=dict(title= MODEL_NAME + '-val_acc'))
+                vis.line(val_acc_history, win='val_acc', opts=dict(title= MODEL_NAME + '-val_acc'))
                 val_loss.append(epoch_loss)
-                # vis.line(val_loss, win='val_loss', opts=dict(title= MODEL_NAME + '-val_loss'))
+                vis.line(val_loss, win='val_loss', opts=dict(title= MODEL_NAME + '-val_loss'))
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
@@ -160,7 +160,7 @@ else:
             return out
 
     model = ConvNet(NUM_CLASSES, BATCH_SIZE)
-model.double()
+
 
 # if torch.cuda.device_count() > 1:
 #     print("Let's use", torch.cuda.device_count(), "GPUs!")
@@ -170,6 +170,7 @@ model = model.to(device)
 
 params_to_update = model.parameters()
 optimizer = optim.Adam(params_to_update, lr=LR)
+# optimizer = optim.SGD(params_to_update, lr=LR)
 criterion = nn.CrossEntropyLoss()
 
 #DATA #####################
@@ -222,13 +223,13 @@ num_1 = NUM_SMILES - num_0
 select = np.random.choice(num_0, int(num_1), replace=False)
 Y0 = labels[select, ...]
 Y1 = labels[num_0:, ...]
-Y = torch.as_tensor(np.append(Y0, Y1))
+Y = torch.from_numpy(np.append(Y0, Y1)).type(torch.FloatTensor)
 smiles0 = smiles[select, ...]
 smiles1 = smiles[num_0:, ...]
 smiles = np.append(smiles0, smiles1)
 smiles_bin = np.asarray(convert_smiles())
 X = hot_smiles_img(MAX_LEN, smiles_bin)
-X = torch.as_tensor(X).unsqueeze(1)
+X = torch.from_numpy(X).unsqueeze(1).type(torch.FloatTensor)
 val_num = int(X.shape[0]*.20)
 val_idx = np.random.choice(smiles.shape[0], val_num, replace=False)
 X_val = X[val_idx, ...]
@@ -255,3 +256,5 @@ val_acc_plt.savefig(RESULTS + '/' + MODEL_NAME + EXTRA_NAME + '_val-acc.jpg')
 
 save_name = PATH + '/' + MODEL_NAME + EXTRA_NAME + str(best_acc.detach().cpu().numpy()) + '.pt'
 torch.save(model, save_name)
+
+print(model.weights().type())

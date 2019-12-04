@@ -56,18 +56,21 @@ def NeutraliseCharges(smiles, reactions=None):
 def N_React(smiles_data):
     neutralized_bin = []
     smiles_bin = []
+    gps_bin = []
     for idx, smile in enumerate(smiles_data):
         (molSmiles, neutralized) = NeutraliseCharges(smile)
         if neutralized:
             neutralized_bin.append(molSmiles)
             smiles_bin.append(smile)
-    neutralized_rxns = np.asarray(zip(smiles_bin, neutralized_bin))
+            gps_bin.append(idx)
+    neutralized_rxns = np.asarray(zip(gps_bin,smiles_bin, neutralized_bin))
     with open('neutralized_reactions.tsv', 'wt') as out_file:
         tsv_writer = csv.writer(out_file, delimiter='\t')
         for thing in neutralized_rxns:
-            thingone = thing[0]
-            thingtwo = thing[1]
-            tsv_writer.writerow([thingone, thingtwo])
+            thingzero = thing[0]
+            thingone = thing[1]
+            thingtwo = thing[2]
+            tsv_writer.writerow([thingzero, thingone, thingtwo])
     return neutralized_rxns
 
 
